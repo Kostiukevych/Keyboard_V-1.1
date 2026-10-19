@@ -633,7 +633,7 @@ class VirtualMouseIME : InputMethodService() {
             '[' -> KeyEvent.KEYCODE_LEFT_BRACKET
             ']' -> KeyEvent.KEYCODE_RIGHT_BRACKET
             '-' -> KeyEvent.KEYCODE_MINUS
-            '=' -> KeyEvent.EQUALS
+            '=' -> KeyEvent.KEYCODE_EQUALS
             '`' -> KeyEvent.KEYCODE_GRAVE
             else -> 0
         }
