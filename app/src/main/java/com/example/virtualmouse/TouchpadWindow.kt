@@ -2,6 +2,7 @@ package com.example.virtualmouse
 
 import android.content.Context
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -17,6 +18,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -59,7 +61,12 @@ class TouchpadWindow(
     private var leftFill: View? = null
     private var leftHz: View? = null
     private var rightHz: View? = null
-    private var lockBtn: TextView? = null
+    private var lmbBox: View? = null            // переключатель ЛКМ (в выдвижной панели)
+    private var swTrack: View? = null
+    private var swKnob: View? = null
+    private var drawer: View? = null            // выдвижная панель кнопок
+    private var drawerHandle: TextView? = null  // стрелка ▲/▼
+    private var drawerOpen = false
     private var wheelView: WheelView? = null
     private var ctxMenu: View? = null
 
@@ -165,9 +172,31 @@ class TouchpadWindow(
         updateLockIcon()
     }
 
+    /** Показывает состояние переключателя ЛКМ (вкл. = кнопка зажата) и стрелки панели. */
     private fun updateLockIcon() {
-        lockBtn?.text = if (sticky) "🔒" else "🔓"
-        lockBtn?.alpha = if (sticky) 1f else 0.85f
+        val col = getSettings().padColor
+        (swTrack?.background?.mutate() as? GradientDrawable)?.setColor(if (sticky) col else 0xFF3A4658.toInt())
+        swKnob?.animate()?.translationX(if (sticky) dp(18).toFloat() else 0f)?.setDuration(140)?.start()
+        lmbBox?.alpha = if (sticky) 1f else 0.9f
+        updateHandle()
+    }
+
+    private fun updateHandle() {
+        val h = drawerHandle ?: return
+        // точка перед стрелкой = ЛКМ зажата, даже когда панель опущена
+        h.text = (if (sticky) "● " else "") + (if (drawerOpen) "▼" else "▲")
+        h.setTextColor(if (sticky) Color.WHITE else getSettings().padColor)
+    }
+
+    /** Поднимает (open = true) или опускает панель с кнопками. */
+    private fun setDrawer(open: Boolean) {
+        drawerOpen = open
+        drawer?.animate()
+            ?.translationY(if (open) 0f else dp(40).toFloat())
+            ?.setDuration(220)
+            ?.setInterpolator(DecelerateInterpolator())
+            ?.start()
+        updateHandle()
     }
 
     override fun hide() {
@@ -333,7 +362,13 @@ class TouchpadWindow(
         leftFill = v.findViewById(R.id.pad_left_fill)
         leftHz = v.findViewById(R.id.pad_left_hz)
         rightHz = v.findViewById(R.id.pad_right_hz)
-        lockBtn = v.findViewById(R.id.pad_btn_lock)
+        lmbBox = v.findViewById(R.id.pad_lmb_box)
+        swTrack = v.findViewById(R.id.pad_sw_track)
+        swKnob = v.findViewById(R.id.pad_sw_knob)
+        drawer = v.findViewById(R.id.pad_drawer)
+        drawerHandle = v.findViewById(R.id.pad_drawer_handle)
+        drawerOpen = false
+        drawer?.translationY = dp(40).toFloat()   // панель опущена: видна только стрелка
         wheelView = v.findViewById(R.id.pad_wheel_view)
         ctxMenu = v.findViewById(R.id.pad_ctx_menu)
 
@@ -344,8 +379,13 @@ class TouchpadWindow(
 
         updateLockIcon()
 
-        // Замок = зажатая левая кнопка мыши (без рамки): двигаем курсор — объект тянется
-        lockBtn?.setOnClickListener { setSticky(!sticky) }
+        // Переключатель ЛКМ = зажатая левая кнопка мыши (без рамки): двигаем курсор — объект тянется
+        lmbBox?.setOnClickListener { setSticky(!sticky) }
+        drawerHandle?.setOnClickListener {
+            sounds.beep(260)
+            closeContextMenu()
+            setDrawer(!drawerOpen)
+        }
         v.findViewById<View>(R.id.pad_btn_kb).setOnClickListener {
             sounds.beep(340)
             onKeyboard()

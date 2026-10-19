@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Язычок со стрелкой над выдвижной панелью (нижняя линия скрыта, чтобы слиться с панелью) -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:bottom="-2dp">
+        <shape android:shape="rectangle">
+            <corners
+                android:topLeftRadius="10dp"
+                android:topRightRadius="10dp" />
+            <gradient
+                android:angle="270"
+                android:endColor="#F01B2638"
+                android:startColor="#F0243350" />
+            <stroke
+                android:width="1dp"
+                android:color="#662E7BFF" />
+        </shape>
+    </item>
+</layer-list>

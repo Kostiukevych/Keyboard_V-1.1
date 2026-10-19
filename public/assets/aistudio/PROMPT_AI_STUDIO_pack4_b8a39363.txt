@@ -1,0 +1,19 @@
+В архиве 6 файлов (без подпапок). Скопируй их в проект ТОЧНО как есть, ничего не переписывай и не "улучшай".
+
+Заменить существующие файлы (содержимое заменить целиком):
+1. TouchpadWindow.kt -> app/src/main/java/com/example/virtualmouse/TouchpadWindow.kt
+2. overlay_touchpad.xml -> app/src/main/res/layout/overlay_touchpad.xml
+
+Создать НОВЫЕ файлы (таких ещё нет):
+3. bg_pad_drawer.xml -> app/src/main/res/drawable/bg_pad_drawer.xml
+4. bg_pad_handle.xml -> app/src/main/res/drawable/bg_pad_handle.xml
+5. bg_switch_track.xml -> app/src/main/res/drawable/bg_switch_track.xml
+6. bg_switch_knob.xml -> app/src/main/res/drawable/bg_switch_knob.xml
+
+Что изменилось (для понимания, код менять не нужно):
+- На тачпаде кнопки замок, папка и шестерёнка убраны из верхней полосы и перенесены в выдвижную панель внизу тачпада. Стрелка ▲ поднимает панель, ▼ опускает.
+- Замок заменён переключателем "ЛКМ": включён = левая кнопка мыши зажата, выключен = отпущена. Логика зажатия (setSticky) осталась прежней.
+- Остальные файлы проекта не трогай. Идентификаторы pad_btn_files, pad_btn_settings, pad_btn_kb, pad_btn_close сохранены. Удалён только pad_btn_lock (его больше нигде не используют).
+- ВАЖНО: НЕ меняй MouseAccessibilityService.kt, TrackballWindow.kt и другие файлы.
+
+После замены убедись, что проект собирается без ошибок, и коротко напиши, что сделано.

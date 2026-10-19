@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Фон выдвижной панели кнопок тачпада -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners
+        android:topLeftRadius="12dp"
+        android:topRightRadius="12dp" />
+    <gradient
+        android:angle="270"
+        android:endColor="#F00B111C"
+        android:startColor="#F01B2638" />
+    <stroke
+        android:width="1dp"
+        android:color="#662E7BFF" />
+</shape>
