@@ -20,6 +20,7 @@ body{background:radial-gradient(ellipse at 50% 30%,var(--bg1),var(--bg2));overfl
 .mouse svg{filter:drop-shadow(0 6px 4px rgba(0,0,0,.5)) drop-shadow(0 26px 22px rgba(0,0,0,.5))}
 .mouse svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .mouse canvas{position:absolute;left:18.75%;top:13.04%;width:45%;height:39.13%;border-radius:50%;cursor:grab;touch-action:none;will-change:transform}
+.mouse iframe.sph{position:absolute;left:18.75%;top:13.04%;width:45%;height:39.13%;border:0;background:transparent;pointer-events:none}
 .mouse canvas.drag{cursor:grabbing;box-shadow:0 0 14px var(--acc)}
 .key{cursor:pointer;transition:transform .08s,filter .08s;transform-box:fill-box}
 .key.pressed{transform:translateY(2.5px);filter:brightness(.85)}
@@ -149,7 +150,7 @@ html.pm .dlg{opacity:1!important}
   var COL=[['Циан','#35e0ff'],['Розовый','#ff3df0'],['Лайм','#8cff3a'],['Жёлтый','#ffe83a'],['Оранжевый','#ff7a2e'],['Фиолет','#a766ff']].map(function(a){
     var n=parseInt(a[1].slice(1),16),r=n>>16,g=n>>8&255,b=n&255,mx=Math.max(r,g,b),d=mx-Math.min(r,g,b),h=mx==r?(g-b)/d*60:mx==g?(b-r)/d*60+120:(r-g)/d*60+240;
     return{hex:a[1],rgb:r+','+g+','+b,h:(h+360)%360}});
-  var STY=['classic','glass','holo','bubble'],NEON=COL[0],ST='classic',spin=0;
+  var STY=['classic','glass','holo','bubble','earth'],NEON=COL[0],ST='classic',spin=0;
   var root=document.documentElement,mouse=document.getElementById('mouse'),dlg=document.getElementById('dlg'),db=document.getElementById('db');
 
   function rot(dx,dy){
@@ -247,7 +248,7 @@ html.pm .dlg{opacity:1!important}
     ctx.lineWidth=3;ctx.lineCap='round';ctx.strokeStyle='rgba(255,255,255,.55)';ctx.beginPath();ctx.arc(C,C,R*.84,.35,.95);ctx.stroke();
     spec(1);
   }
-  function draw(){ST=='glass'?drawGlass():ST=='holo'?drawHolo():ST=='bubble'?drawBubble():drawClassic()}
+  function draw(){if(ST=='bubble'||ST=='earth'){ctx.clearRect(0,0,S,S);return}ST=='glass'?drawGlass():ST=='holo'?drawHolo():drawClassic()}
 
   /* ===== курсор: в браузере рисуется здесь, в приложении — нативным оверлеем ===== */
   var AND=!!window.Android,DPR=window.devicePixelRatio||1;
@@ -263,7 +264,7 @@ html.pm .dlg{opacity:1!important}
     ibeam:{d:'M11 4H21M16 4V28M11 28H21',x:16,y:16,line:1},
     dia:{d:'M16 4L28 16L16 28L4 16Z',x:16,y:16},
     tri:{d:'M16 4L28 27H4Z',x:16,y:16}};
-  function pth(d,f,k,w,j){return '<path d="'+d+'" style="fill:'f+';stroke:'+k+'" stroke-width="'+w+'" stroke-linejoin="'+(j||'round')+'" stroke-linecap="round"/>'}
+  function pth(d,f,k,w,j){return '<path d="'+d+'" style="fill:'+f+';stroke:'+k+'" stroke-width="'+w+'" stroke-linejoin="'+(j||'round')+'" stroke-linecap="round"/>'}
   function drawCur(){
     if(AND)return;
     var s=SH[CUR.sh],c=CUR.col,st=CUR.st,h;
@@ -303,10 +304,26 @@ html.pm .dlg{opacity:1!important}
   function flush(){if(AND&&(pdx||pdy)){var a=pdx,b=pdy;pdx=pdy=0;Android.onMove(a,b)}}
 
   /* ===== шар ===== */
+  /* сфера-iframe для стилей «Голо-шар» и «Земля»: рисует она, ввод принимает холст */
+  var SPHF=null,SPHN='';
+  function mountSph(){
+    var want=ST=='bubble'?'holo_ball.html':ST=='earth'?'earth_ball.html':'';
+    if(want===SPHN)return;
+    if(SPHF){SPHF.remove();SPHF=null}
+    SPHN=want;if(!want)return;
+    var f=document.createElement('iframe');f.className='sph';f.src=want;
+    f.setAttribute('tabindex','-1');f.setAttribute('aria-hidden','true');f.setAttribute('allowtransparency','true');
+    cv.parentNode.insertBefore(f,cv);SPHF=f;
+  }
+  function sphSend(k,e){
+    if(!SPHF||!SPHF.contentWindow||!e)return;
+    var r=cv.getBoundingClientRect();
+    try{SPHF.contentWindow.postMessage({tb:1,k:k,x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height},'*')}catch(_){}
+  }
   var drag=false,lx=0,ly=0,vx=0,vy=0,lt=0;
-  cv.addEventListener('pointerdown',function(e){if(AND)Android.onBallDown();drag=true;lx=e.clientX;ly=e.clientY;vx=vy=0;lt=performance.now();cv.classList.add('drag');cv.setPointerCapture(e.pointerId);e.preventDefault();});
-  cv.addEventListener('pointermove',function(e){if(!drag)return;var dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;move(dx,dy);vx=vx*.5+dx*.5;vy=vy*.5+dy*.5;lt=performance.now();e.preventDefault();});
-  function up(){if(!drag)return;flush();if(AND)Android.onBallUp();drag=false;cv.classList.remove('drag');if(performance.now()-lt>80)vx=vy=0;}
+  cv.addEventListener('pointerdown',function(e){if(AND)Android.onBallDown();sphSend('down',e);drag=true;lx=e.clientX;ly=e.clientY;vx=vy=0;lt=performance.now();cv.classList.add('drag');cv.setPointerCapture(e.pointerId);e.preventDefault();});
+  cv.addEventListener('pointermove',function(e){if(!drag)return;var dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;move(dx,dy);sphSend('move',e);vx=vx*.5+dx*.5;vy=vy*.5+dy*.5;lt=performance.now();e.preventDefault();});
+  function up(e){if(!drag)return;sphSend('up',e);flush();if(AND)Android.onBallUp();drag=false;cv.classList.remove('drag');if(performance.now()-lt>80)vx=vy=0;}
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
   function loop(){
     if(!drag&&Math.abs(vx)+Math.abs(vy)>.05){move(vx,vy);vx*=.95;vy*=.95;}else if(!drag){vx=vy=0;}
@@ -368,10 +385,10 @@ html.pm .dlg{opacity:1!important}
     if(t)t.classList.toggle(right?'alt':'on');
   }
   function apply(){
-    mouse.dataset.s=dlg.dataset.s=menu.dataset.s=ST;
+    mouse.dataset.s=ST=='earth'?'glass':ST;dlg.dataset.s=menu.dataset.s=ST;
     root.style.setProperty('--acc',NEON?NEON.hex:'#c9d3dc');
     document.getElementById('kcdot').style.fill=NEON?NEON.hex:'#8a96a2';
-    dirty=true;saveState();
+    dirty=true;mountSph();saveState();
   }
   function bind(id,fn){var b=document.getElementById(id);
     b.addEventListener('pointerdown',function(e){b.classList.add('pressed');fn();e.preventDefault()});
@@ -463,7 +480,7 @@ html.pm .dlg{opacity:1!important}
   group('Стиль курсора',[['fill','Заливка'],['dark','Тёмный'],['line','Контур']],function(){return CUR.st},function(v){CUR.st=v;drawCur()});
   group('Цвет курсора',[['#ffffff','Белый'],['#2bff2b','Зелёный'],['#ff1a1a','Красный'],['#35e0ff','Циан'],['#ffe83a','Жёлтый'],['#ff3df0','Розовый']],function(){return CUR.col},function(v){CUR.col=v;drawCur()});
   group('Свечение курсора',[['0','Выкл'],['1','Вкл']],function(){return String(CUR.glow)},function(v){CUR.glow=+v;drawCur()});
-  group('Стиль трекбола',[['classic','Классика'],['glass','Стекло'],['holo','Голограмма'],['bubble','Пузырь']],function(){return ST},function(v){ST=v;apply()});
+  group('Стиль трекбола',[['classic','Классика'],['glass','Стекло'],['holo','Голограмма'],['bubble','Голо-шар'],['earth','Земля']],function(){return ST},function(v){ST=v;apply()});
   group('Подсветка трекбола',COL.map(function(c,i){return [String(i),c.hex==COL[0].hex?'Циан':['','Розовый','Лайм','Жёлтый','Оранжевый','Фиолет'][i]]}).concat([['-1','Выкл']]),function(){return String(NEON?COL.indexOf(NEON):-1)},function(v){NEON=+v>=0?COL[+v]:null;apply()});
   group('Раскраска трекбола',[['plain','Обычный'],['b1','Пляж сзади'],['b2','Пляж спереди'],['rb','Робот'],['hx','Неоновые соты'],['sk','Череп'],['gh','Серые соты'],['mb','Мрамор'],['gr','Зелёные соты']],function(){return SK},function(v){SK=v;applySkin()});
   group('Картинка на корпусе',[['none','Растянуть'],['xMidYMid slice','Обрезать']],function(){return FIT},function(v){FIT=v;applySkin()});

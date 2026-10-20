@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Голографический трекбол</title>
+<style>
+  :root{--bg:#02030a;--ink:#7df3ff;--S:80vmin;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;touch-action:none}
+  .stage{position:relative;width:100%;height:100%}
+  canvas{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none;z-index:2}
+  .halo,.core,.irid,.scan{position:absolute;left:50%;top:50%;translate:-50% -50%;border-radius:50%;pointer-events:none}
+  .halo{width:calc(var(--S)*1.6);height:calc(var(--S)*1.6);background:radial-gradient(closest-side,rgba(60,100,255,.14) 30%,rgba(120,60,255,.09) 62%,transparent 100%)}
+  /* гладкий шар: объёмная подсветка и светящийся ободок (френель) */
+  .core{width:var(--S);height:var(--S);
+    background:radial-gradient(circle closest-side,transparent 80%,rgba(0,230,255,.20) 96%,rgba(160,250,255,.55) 99.4%,transparent 100%),
+               radial-gradient(circle at 36% 30%,rgba(130,210,255,.15),rgba(50,70,220,.07) 48%,transparent 78%);
+    box-shadow:0 0 calc(var(--S)*.05) rgba(60,160,255,.30)}
+  /* голографическая радужная фольга, медленно смещается */
+  .irid{width:var(--S);height:var(--S);opacity:.5;z-index:1;
+    background:conic-gradient(from 0deg,rgba(0,255,255,.16),rgba(120,80,255,.18),rgba(255,0,200,.15),rgba(255,220,60,.09),rgba(0,255,160,.15),rgba(0,255,255,.16));
+    -webkit-mask-image:radial-gradient(circle closest-side,transparent 25%,#000 100%);mask-image:radial-gradient(circle closest-side,transparent 25%,#000 100%);
+    animation:spin 18s linear infinite}
+  @keyframes spin{to{rotate:360deg}}
+  /* строки развёртки и бегущая световая полоса */
+  .scan{width:var(--S);height:var(--S);overflow:hidden;z-index:3;animation:flick 6s steps(1) infinite}
+  .scan::before{content:"";position:absolute;left:0;right:0;top:-8px;bottom:-8px;background:repeating-linear-gradient(to bottom,rgba(130,255,255,.10) 0 1px,transparent 1px 4px);animation:drift 1.1s linear infinite}
+  .scan::after{content:"";position:absolute;left:0;right:0;height:20%;top:-20%;background:linear-gradient(to bottom,transparent,rgba(120,255,255,.17),transparent);animation:sweep 4.5s linear infinite}
+  @keyframes drift{to{transform:translateY(4px)}}
+  @keyframes sweep{to{transform:translateY(600%)}}
+  @keyframes flick{0%,100%{opacity:1}7%{opacity:.78}8%{opacity:1}53%{opacity:.88}54%{opacity:1}}
+  .info{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:var(--ink);font:14px system-ui,sans-serif;letter-spacing:.03em;text-shadow:0 0 10px var(--ink);pointer-events:none;opacity:.75;animation:fade 1.2s 6s forwards}
+  @keyframes fade{to{opacity:0}}
+  @media (prefers-reduced-motion:reduce){.irid,.scan,.scan::before,.scan::after{animation:none}.info{animation-duration:.01s}}
+</style>
+</head>
+<body>
+<div class="stage"><div class="halo"></div><div class="core"></div><div class="irid"></div><canvas id="c"></canvas><div class="scan"></div></div>
+<div class="info">Крути как трекбол. Резкий свайп, двойной тап или долгое нажатие: сильный разряд</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let dpr = Math.min(window.devicePixelRatio || 1, 1.5), fpsAcc = 0, fpsN = 0, W, H, cx, cy, R;
+function resize(){
+  W = canvas.width = Math.round(canvas.clientWidth*dpr); H = canvas.height = Math.round(canvas.clientHeight*dpr);
+  cx = W/2; cy = H/2; R = Math.min(W,H)*0.40;
+  // радиус силуэта шара при перспективе 3.6: R * 1.0409
+  document.documentElement.style.setProperty('--S', (2*R*1.0409/dpr).toFixed(1)+'px');
+}
+resize(); addEventListener('resize', resize);
+const hsla = (h,s,l,a)=>`hsla(${h},${s}%,${l}%,${a})`;
+
+// ===== Выход для курсора =====
+// trackball.onMove(dx, dy): смещение в пикселях (с учётом чувствительности), то же приходит событием 'trackball'.
+const trackball = window.trackball = { sensitivity: 1, onMove: null, discharge: ()=>discharge() };
+function emit(dx, dy){
+  const k = trackball.sensitivity, mx = dx*k, my = dy*k;
+  if(trackball.onMove) trackball.onMove(mx, my);
+  dispatchEvent(new CustomEvent('trackball', {detail: {dx: mx, dy: my}}));
+}
+
+// ===== Геометрия: соты на гладкой сфере (рёбра и соты рисуются дугами по поверхности) =====
+const K = 4; // сегментов на ребро
+const nl = (a,b,k)=>{ const t = k/K, p = [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t], l = Math.hypot(...p); return [p[0]/l, p[1]/l, p[2]/l]; };
+const norm = p => { const l = Math.hypot(...p); return [p[0]/l, p[1]/l, p[2]/l]; };
+function build(n){
+  const t = (1 + Math.sqrt(5))/2;
+  const V0 = [[-1,t,0],[1,t,0],[-1,-t,0],[1,-t,0],[0,-1,t],[0,1,t],[0,-1,-t],[0,1,-t],[t,0,-1],[t,0,1],[-t,0,-1],[-t,0,1]].map(norm);
+  const F0 = [[0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],[1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+              [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],[4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]];
+  const V = [], map = new Map(), F = [];
+  const vid = p => {
+    const q = norm(p), k = q.map(x=>Math.round(x*1e3)).join();
+    if(!map.has(k)){ map.set(k, V.length); V.push(q); }
+    return map.get(k);
+  };
+  for(const f of F0){
+    const [A,B,C] = f.map(i=>V0[i]);
+    const P = (i,j)=>{ const k = n-i-j; return vid([0,1,2].map(a=>A[a]*k + B[a]*i + C[a]*j)); };
+    for(let i=0;i<n;i++) for(let j=0;j<n-i;j++){
+      F.push([P(i,j), P(i+1,j), P(i,j+1)]);
+      if(i+j < n-1) F.push([P(i+1,j), P(i+1,j+1), P(i,j+1)]);
+    }
+  }
+  const D = F.map(f=>norm([0,1,2].map(a=>f.reduce((s,i)=>s+V[i][a],0))));
+  const vf = V.map(()=>[]);
+  F.forEach((f,fi)=>f.forEach(i=>vf[i].push(fi)));
+  const cells = V.map((c,vi)=>{
+    const a = Math.abs(c[0]) < .9 ? [1,0,0] : [0,1,0];
+    const u = norm([c[1]*a[2]-c[2]*a[1], c[2]*a[0]-c[0]*a[2], c[0]*a[1]-c[1]*a[0]]);
+    const w = [c[1]*u[2]-c[2]*u[1], c[2]*u[0]-c[0]*u[2], c[0]*u[1]-c[1]*u[0]];
+    const ang = fi => { const p = D[fi]; return Math.atan2(p[0]*w[0]+p[1]*w[1]+p[2]*w[2], p[0]*u[0]+p[1]*u[1]+p[2]*u[2]); };
+    const idx = vf[vi].slice().sort((x,y)=>ang(x)-ang(y)), bd = [];
+    for(let i=0;i<idx.length;i++) for(let k=0;k<K;k++) bd.push(nl(D[idx[i]], D[idx[(i+1)%idx.length]], k));
+    const shrink = (p,s)=>norm([c[0]+(p[0]-c[0])*s, c[1]+(p[1]-c[1])*s, c[2]+(p[2]-c[2])*s]);
+    return {c, bd, rA: bd.map(p=>shrink(p,0.80)), rB: idx.map(i=>shrink(D[i],0.52)), ph: Math.random()*6.283, idx};
+  });
+  const seen = new Set(), edges = [];
+  cells.forEach(cl=>{
+    const m = cl.idx.length;
+    for(let i=0;i<m;i++){
+      const a = cl.idx[i], b = cl.idx[(i+1)%m], k = a<b ? a+'-'+b : b+'-'+a;
+      if(!seen.has(k)){ seen.add(k); edges.push([a,b]); }
+    }
+  });
+  const earc = edges.map(([a,b])=>Array.from({length: K+1}, (_,k)=>nl(D[a], D[b], k)));
+  return {D, cells, earc};
+}
+const G = build(3);   // 92 соты
+
+// ===== Трекбол =====
+let M = [1,0,0, 0,1,0, 0,0,1], vA = 0, vB = 0, frameMove = 0, spd = 0;
+let dragging = false, lx, ly, downT = 0, pathLen = 0, lastTap = 0, pressTimer = 0, fired = false;
+function rotate(a, b){
+  const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+  const Y = [ca,0,sa, 0,1,0, -sa,0,ca], X = [1,0,0, 0,cb,-sb, 0,sb,cb];
+  const mul = (P,Q)=>{ const r = []; for(let i=0;i<3;i++) for(let j=0;j<3;j++) r.push(P[i*3]*Q[j] + P[i*3+1]*Q[3+j] + P[i*3+2]*Q[6+j]); return r; };
+  M = mul(X, mul(Y, M));
+}
+rotate(0, 0.35);
+const rot = v => [M[0]*v[0]+M[1]*v[1]+M[2]*v[2], M[3]*v[0]+M[4]*v[1]+M[5]*v[2], M[6]*v[0]+M[7]*v[1]+M[8]*v[2]];
+function proj(p){ const f = 3.6/(3.6 + p[2]); return [cx + p[0]*R*f, cy + p[1]*R*f]; }
+// поворот + проекция: [экранX, экранY, z, x, y]
+function rp(p){
+  const x = M[0]*p[0]+M[1]*p[1]+M[2]*p[2], y = M[3]*p[0]+M[4]*p[1]+M[5]*p[2], z = M[6]*p[0]+M[7]*p[1]+M[8]*p[2], f = 3.6/(3.6+z);
+  return [cx + x*R*f, cy + y*R*f, z, x, y];
+}
+
+canvas.addEventListener('pointerdown', e=>{
+  dragging = true; fired = false; lx = e.clientX; ly = e.clientY; vA = vB = 0; pathLen = 0; downT = performance.now();
+  canvas.setPointerCapture(e.pointerId);
+  clearTimeout(pressTimer);
+  pressTimer = setTimeout(()=>{ if(dragging && pathLen < 10){ fired = true; discharge(); } }, 550);
+});
+canvas.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  const dx = e.clientX-lx, dy = e.clientY-ly;
+  pathLen += Math.hypot(dx,dy);
+  const dA = -dx*0.008, dB = dy*0.008;
+  rotate(dA, dB); vA = dA; vB = dB; frameMove += Math.hypot(dA,dB);
+  emit(dx, dy);
+  lx = e.clientX; ly = e.clientY;
+});
+const up = ()=>{
+  clearTimeout(pressTimer);
+  if(dragging && !fired && pathLen < 10){
+    const now = performance.now();
+    if(now - downT < 300){
+      if(now - lastTap < 350){ lastTap = 0; discharge(); } else lastTap = now;
+    }
+  }
+  dragging = false;
+};
+canvas.addEventListener('pointerup', up);
+canvas.addEventListener('pointercancel', up);
+
+let lastBuzz = 0;
+function buzz(t, ms){ if(navigator.vibrate && t > lastBuzz + 0.12){ lastBuzz = t; navigator.vibrate(ms); } }
+
+// ===== Молнии: ветвящийся канал, мерцание повторных ударов, пятно удара о стенку =====
+const PAL = [100, 0, 220, 300, 50, 180, 28, 270, 150];
+let bolts = [], colIdx = 0, nextCol = 0, acc = 0, dt = 0.016, lastMs = 0, flash = 0, flashHue = 200, strongCd = 0;
+function rv(k){
+  const a = Math.random()*6.283, z = Math.random()*2-1, r = Math.sqrt(1-z*z);
+  return [r*Math.cos(a)*k, z*k, r*Math.sin(a)*k];
+}
+function jag(a, b, d, out){
+  if(d === 0){ out.push(b); return; }
+  const len = Math.hypot(b[0]-a[0], b[1]-a[1], b[2]-a[2])*0.32;
+  const m = [0,1,2].map(i => (a[i]+b[i])/2 + (Math.random()-.5)*len);
+  jag(a, m, d-1, out); jag(m, b, d-1, out);
+}
+function clampIn(pts){ pts.forEach(p=>{ const l = Math.hypot(...p); if(l > 0.97){ p[0]*=0.97/l; p[1]*=0.97/l; p[2]*=0.97/l; } }); }
+function mkBolt(hue, a, b, w){
+  const main = [a]; jag(a, b, 5, main); clampIn(main);
+  const forks = [], nf = 2 + ((Math.random()*3)|0);
+  for(let n=0;n<nf;n++){
+    const i = 3 + ((Math.random()*(main.length-8))|0), p = main[i], q = main[i+1];
+    const d = [q[0]-p[0], q[1]-p[1], q[2]-p[2]], dl = Math.hypot(...d) || 1, r = rv(0.9), len = 0.14 + Math.random()*0.3;
+    const dir = norm([d[0]/dl + r[0], d[1]/dl + r[1], d[2]/dl + r[2]]);
+    const f = [p.slice()]; jag(p.slice(), [p[0]+dir[0]*len, p[1]+dir[1]*len, p[2]+dir[2]*len], 3, f); clampIn(f);
+    forks.push(f);
+  }
+  return {main, forks, hue, w, life: 0, max: 0.22 + Math.random()*0.35, ph: Math.random()*6.283};
+}
+function spawnBolt(t){
+  if(t > nextCol){
+    colIdx = (colIdx + 1 + ((Math.random()*(PAL.length-1))|0)) % PAL.length;
+    nextCol = t + 0.25 + Math.random()*0.2;
+  }
+  const hue = PAL[colIdx];
+  bolts.push(mkBolt(hue, rv(0.05), rv(0.97), 1));
+  if(Math.random() < 0.3) bolts.push(mkBolt(hue, rv(0.95), rv(0.95), 0.7));
+  if(bolts.length > 14) bolts.splice(0, bolts.length - 14);
+  buzz(t, 8);
+}
+function strongBurst(){
+  flashHue = PAL[colIdx]; flash = 1;
+  for(let i=0;i<5;i++) bolts.push(mkBolt(flashHue, rv(0.05), rv(0.97), 1.4));
+  for(let i=0;i<2;i++) bolts.push(mkBolt(flashHue, rv(0.95), rv(0.95), 0.9));
+  if(bolts.length > 18) bolts.splice(0, bolts.length - 18);
+}
+function discharge(){
+  const now = performance.now()/1000;
+  if(now < strongCd) return;
+  strongCd = now + 0.9;
+  strongBurst();
+  if(navigator.vibrate) navigator.vibrate([40, 30, 80]);
+}
+function strokePts(P, pts, jit){
+  pts.forEach((p,i)=>{
+    const q = proj(rot(p)), x = q[0] + (Math.random()-.5)*jit, y = q[1] + (Math.random()-.5)*jit;
+    i ? P.lineTo(x,y) : P.moveTo(x,y);
+  });
+}
+function drawBolts(){
+  bolts = bolts.filter(b => (b.life += dt) < b.max);
+  if(flash > 0){
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R*0.95);
+    g.addColorStop(0, hsla(flashHue, 100, 65, 0.5*flash)); g.addColorStop(1, hsla(flashHue, 100, 50, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R*0.95, 0, 6.283); ctx.fill();
+  }
+  if(!bolts.length) return;
+  const c0 = bolts[bolts.length-1].hue, k = Math.min(1, bolts.length/6);
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R*0.8);
+  g.addColorStop(0, hsla(c0, 100, 62, 0.30*k)); g.addColorStop(1, hsla(c0, 100, 50, 0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R*0.8, 0, 6.283); ctx.fill();
+  ctx.lineJoin = ctx.lineCap = 'round';
+  for(const b of bolts){
+    const u = b.life/b.max;
+    const I = Math.exp(-2.4*u) * (0.55 + 0.45*(Math.sin(b.life*55 + b.ph) > -0.2 ? 1 : 0.25));  // мерцание: удар, затухание, повторный удар
+    if(I < 0.03) continue;
+    const PM = new Path2D(), PF = new Path2D(), jit = 1.4*dpr;
+    strokePts(PM, b.main, jit); b.forks.forEach(f=>strokePts(PF, f, jit));
+    ctx.strokeStyle = hsla(b.hue, 100, 55, 0.20*I);
+    ctx.lineWidth = 10*b.w*dpr; ctx.stroke(PM); ctx.lineWidth = 5*b.w*dpr; ctx.stroke(PF);
+    ctx.strokeStyle = hsla(b.hue, 100, 64, 0.55*I); ctx.lineWidth = 3.2*b.w*dpr; ctx.stroke(PM);
+    ctx.strokeStyle = hsla(b.hue, 55, 95, I);
+    ctx.lineWidth = 1.5*b.w*dpr; ctx.stroke(PM); ctx.lineWidth = 0.8*dpr; ctx.stroke(PF);
+    const e = proj(rot(b.main[b.main.length-1])), r = 9*b.w*dpr;
+    ctx.fillStyle = hsla(b.hue, 100, 60, 0.18*I); ctx.beginPath(); ctx.arc(e[0], e[1], r, 0, 6.283); ctx.fill();
+    ctx.fillStyle = hsla(b.hue, 40, 96, 0.85*I); ctx.beginPath(); ctx.arc(e[0], e[1], 2.4*dpr, 0, 6.283); ctx.fill();
+  }
+}
+
+// ===== Голографическая сфера =====
+function poly(P, pts){ pts.forEach((q,i)=> i ? P.lineTo(q[0],q[1]) : P.moveTo(q[0],q[1])); P.closePath(); }
+let pe, pdv, nextGlitch = 2, glitchUntil = 0;
+
+function layer(front, t, scanY, ab){
+  const k = front ? 1 : 0.38, inA = new Path2D(), inB = new Path2D();
+  for(const cl of G.cells){
+    const rc = rot(cl.c);
+    if((rc[2] <= 0) !== front) continue;
+    const fr = (1 - rc[2])/2, rim = 1 - Math.abs(rc[2]);
+    const hue = 190 + 100*(0.5 + 0.5*Math.sin(t*0.6 + rc[1]*2.6 + rc[0]*1.8 + rim*2));   // переливы по углу обзора
+    const dy = rc[1] - scanY, band = Math.exp(-dy*dy/0.012);                            // бегущая полоса развёртки
+    const fk = Math.sin(t*3.1 + cl.ph*5) > 0.94 ? 0.16 : 0;                             // случайные вспышки сот
+    const a = (0.035 + rim*0.10 + fr*0.04 + band*0.30 + fk)*k;
+    ctx.beginPath();
+    cl.bd.forEach((p,i)=>{ const q = rp(p); i ? ctx.lineTo(q[0],q[1]) : ctx.moveTo(q[0],q[1]); });
+    ctx.closePath();
+    ctx.fillStyle = hsla(hue, 100, 62, a); ctx.fill();
+    poly(inA, cl.rA.map(rp)); poly(inB, cl.rB.map(rp));
+  }
+  ctx.lineWidth = dpr;
+  ctx.strokeStyle = hsla(190, 100, 78, 0.20*k); ctx.stroke(inA);
+  ctx.strokeStyle = hsla(200, 100, 80, 0.12*k); ctx.stroke(inB);
+
+  const buckets = Array.from({length: 6}, ()=>new Path2D()), all = new Path2D();
+  for(const a of pe) for(let i=0;i<K;i++){
+    const p = a[i], q = a[i+1];
+    if(((p[2] + q[2])/2 <= 0) !== front) continue;
+    const sh = 0.5 + 0.5*Math.sin(t*0.6 + (p[4]+q[4])*1.5 + (p[3]+q[3]));
+    const B = buckets[Math.min(5, (sh*6)|0)];
+    B.moveTo(p[0],p[1]); B.lineTo(q[0],q[1]);
+    if(front){ all.moveTo(p[0],p[1]); all.lineTo(q[0],q[1]); }
+  }
+  const am = front ? 1 : 0.35, wm = front ? 1 : 0.65;
+  const layers = front ? [[10,0.10,57],[4.5,0.5,62],[2,0.95,90]] : [[7,0.12,57],[2,0.7,80]];
+  buckets.forEach((P,bi)=>{
+    const hue = 190 + 100*((bi+0.5)/6);
+    for(const [w,al,l] of layers){ ctx.strokeStyle = hsla(hue, 100, l, al*am); ctx.lineWidth = w*wm*dpr; ctx.stroke(P); }
+  });
+  if(front){
+    // хроматическое расслоение: голограмма «дрожит» цветными копиями линий
+    ctx.save(); ctx.lineWidth = 1.6*dpr;
+    ctx.translate(-ab, 0); ctx.strokeStyle = hsla(185, 100, 60, 0.32); ctx.stroke(all);
+    ctx.translate(2*ab, 0); ctx.strokeStyle = hsla(310, 100, 65, 0.32); ctx.stroke(all);
+    ctx.restore();
+    ctx.fillStyle = 'rgba(190,245,255,0.55)'; ctx.beginPath();
+    pdv.forEach(q=>{ if(q[2] > 0) return; ctx.moveTo(q[0]+3*dpr, q[1]); ctx.arc(q[0], q[1], 3*dpr, 0, 6.283); });
+    ctx.fill();
+  }
+}
+
+// ===== Кадр =====
+let calm = false, skip = false;
+function frame(ms){
+  if(calm && (skip = !skip)){ requestAnimationFrame(frame); return; }   // в покое 30 кадров/с
+  const t = ms/1000;
+  dt = Math.min(0.05, (ms - lastMs)/1000 || 0.016); lastMs = ms;
+  fpsAcc += dt; fpsN++;
+  if(fpsN >= 40){
+    if(fpsAcc/fpsN > 0.026 && dpr > 0.8){ dpr = Math.max(0.8, dpr*0.8); resize(); }
+    fpsAcc = 0; fpsN = 0;
+  }
+  let moved;
+  if(dragging){ moved = frameMove; vA *= 0.8; vB *= 0.8; }
+  else {
+    rotate(vA, vB); moved = Math.hypot(vA, vB);
+    if(moved > 1e-4) emit(-vA/0.008, vB/0.008); else vA = vB = 0;
+    vA *= 0.95; vB *= 0.95;
+  }
+  frameMove = 0; spd = spd*0.8 + moved*0.2;
+  if(spd > 0.008){ acc += (spd - 0.008)*22; while(acc >= 1){ spawnBolt(t); acc -= 1; } }
+  if(moved > 0.06 || spd > 0.04) discharge();      // резкий свайп = сильный разряд
+  flash = Math.max(0, flash - dt*1.6);
+
+  if(t > nextGlitch){ glitchUntil = t + 0.14; nextGlitch = t + 2.5 + Math.random()*4; }
+  const gl = t < glitchUntil ? 0.5 + Math.random()*0.5 : 0;
+  const ab = (1.1 + gl*6)*dpr, scanY = ((t*0.35)%1)*2.6 - 1.3;
+
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.clearRect(0,0,W,H);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineJoin = ctx.lineCap = 'round';
+  pe = G.earc.map(a=>a.map(rp)); pdv = G.D.map(rp);
+
+  layer(false, t, scanY, ab);
+  drawBolts();
+  layer(true, t, scanY, ab);
+
+  calm = !dragging && spd < 0.004 && !bolts.length && flash <= 0;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+<script src="ball_bridge.js"></script>
+</body>
+</html>
