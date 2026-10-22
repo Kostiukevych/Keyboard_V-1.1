@@ -52,6 +52,7 @@ class TrackballWindow(
     private val onSettings: () -> Unit,
     private val onKeyboard: () -> Unit,
     private val onHide: () -> Unit,
+    private val onJoy: () -> Unit,
     private val onSwitchToTouchpad: () -> Unit
 ) : PadWindow {
 
@@ -309,6 +310,22 @@ class TrackballWindow(
     private fun ballUp() {
     }
 
+    /** Поднимает окно трекбола над остальными оверлеями (над голо-окном дрона). */
+    fun bringToFront() {
+        val v = root ?: return
+        try {
+            wm.removeViewImmediate(v)
+            wm.addView(v, lp)
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Настройки пришли из голо-окна дрона (Joy): применяем и сразу обновляем страницу трекбола. */
+    fun applyExternalState(json: String) {
+        applyState(json)
+        web?.evaluateJavascript("window.hostState&&hostState(" + JSONObject.quote(json) + ")", null)
+    }
+
     // ---------- Состояние HTML-панели ----------
 
     private fun applyState(json: String) {
@@ -389,6 +406,7 @@ class TrackballWindow(
             }
             "files" -> FileManagerLauncher.open(ctx)
             "kb" -> onKeyboard()
+            "joy" -> onJoy()
             "appset" -> onSettings()
             "close" -> onHide()
             "refresh" -> { svc()?.refreshPage(); clearGrab() }

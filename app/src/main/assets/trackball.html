@@ -414,7 +414,7 @@ html.pm .dlg{opacity:1!important}
     if(MBT.sel)MBT.sel.classList.toggle('sel',!!sel);
   };
   function mact(n){
-    if(n=='set'){openPanel('set');return}
+    if(n=='set'){if(AND){closePanel();Android.onMenu('joy')}else openPanel('set');return}
     if(n=='lock'||n=='sel'){if(AND)Android.onMenu(n);return}
     closePanel();if(AND)Android.onMenu(n);
   }
@@ -444,7 +444,7 @@ html.pm .dlg{opacity:1!important}
   bind('kr',function(){click(1)});
   bind('ks',function(){ST=STY[(STY.indexOf(ST)+1)%STY.length];apply()});
   bind('kc',function(){var n=(NEON?COL.indexOf(NEON):-1)+1;NEON=n>=COL.length?null:COL[n];apply()});
-  bind('kg',openSet);
+  bind('kg',function(){if(AND)Android.onMenu('joy');else openSet()});
   document.getElementById('dx').onclick=function(){if(AND)closePanel();else dlg.hidden=true};
 
   /* ===== скины ===== */
@@ -485,6 +485,13 @@ html.pm .dlg{opacity:1!important}
   group('Раскраска трекбола',[['plain','Обычный'],['b1','Пляж сзади'],['b2','Пляж спереди'],['rb','Робот'],['hx','Неоновые соты'],['sk','Череп'],['gh','Серые соты'],['mb','Мрамор'],['gr','Зелёные соты']],function(){return SK},function(v){SK=v;applySkin()});
   group('Картинка на корпусе',[['none','Растянуть'],['xMidYMid slice','Обрезать']],function(){return FIT},function(v){FIT=v;applySkin()});
   addEventListener('resize',function(){cx=Math.min(cx,innerWidth-2);cy=Math.min(cy,innerHeight-2);place();dirty=true});
+  /* настройки, изменённые в голо-окне дрона Joy, приходят сюда из приложения */
+  window.hostState=function(json){try{var o=JSON.parse(json);
+    if(o.ST)ST=o.ST;if(o.neon!=null)NEON=o.neon>=0?COL[o.neon]||null:null;
+    if(o.rot!=null)setRot(o.rot);if(o.sk)SK=o.sk;if(o.fit)FIT=o.fit;
+    if(o.cur)for(var k in o.cur)CUR[k]=o.cur[k];
+    if(o.sens)SENS=o.sens;if(o.ws)WS=o.ws;
+    apply();applySkin();drawCur()}catch(e){}};
   rot(40,-25);setRot(ROT);apply();applySkin();drawCur();
   if(AND)saveState();   /* первый раз передаём курсор и настройки в приложение */
   loop();

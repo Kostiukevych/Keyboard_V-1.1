@@ -34,6 +34,8 @@ class OverlayService : Service() {
     private var pad: PadWindow? = null
     private var padStyleBuilt = 0
     private var settingsWindow: SettingsWindow? = null
+    private var stylus: StylusWindow? = null
+    private var joy: JoyWindow? = null
     private var started = false
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -102,14 +104,18 @@ class OverlayService : Service() {
             this, wm,
             getSettings = { settings },
             save = { persist() },
-            onTap = { if (pad?.isShown == true) hidePad() else showPad() },
+            onTap = {
+                if (stylus?.isShown == true) closeStylus(true)
+                else if (pad?.isShown == true) hidePad() else showPad()
+            },
             onLongTap = { toggleSettings() }
         ).also { it.show() }
 
         settingsWindow = SettingsWindow(
             this, wm, settings,
             onChanged = { applyAll() },
-            onSave = { persist() }
+            onSave = { persist() },
+            onStylus = { showStylus() }
         )
         showPad()
     }
@@ -126,6 +132,7 @@ class OverlayService : Service() {
                 onSettings = { toggleSettings() },
                 onKeyboard = { showPicker() },
                 onHide = { hidePad() },
+                onJoy = { toggleJoy() },
                 onSwitchToTouchpad = {
                     // Двойной тап по ЛКМ трекбола -> меню -> «Тачпад»
                     settings.padStyle = 0
@@ -158,8 +165,60 @@ class OverlayService : Service() {
     }
 
     private fun hidePad() {
+        hideJoy()
         pad?.hide()
         cursor?.hide()
+    }
+
+    // ---------- Умный стилус NOVA ----------
+
+    /** Открывает стилус: тачпад/трекбол и курсор скрываются, поверх экрана появляется NOVA. */
+    private fun showStylus() {
+        hideJoy()
+        settingsWindow?.hide()
+        hidePad()
+        if (stylus == null) {
+            stylus = StylusWindow(
+                this, wm,
+                getPadName = { if (settings.padStyle == 1) "Трекбол" else "Тачпад" },
+                onReturnPad = { closeStylus(true) },
+                onClose = { closeStylus(false) }
+            )
+        }
+        stylus?.show()
+    }
+
+    /** returnPad = true: закрыть стилус и вернуть тачпад/трекбол; false: только закрыть (вернуть можно плавающей кнопкой). */
+    private fun closeStylus(returnPad: Boolean) {
+        stylus?.hide()
+        stylus = null
+        if (returnPad) showPad()
+    }
+
+    // ---------- Дрон Joy (кнопка с тремя полосками на трекболе) ----------
+
+    private fun toggleJoy() {
+        val j = joy
+        if (j != null && j.isShown) {
+            j.toggleScreen()
+            return
+        }
+        val w = JoyWindow(
+            this, wm,
+            getSettings = { settings },
+            onTbState = { json -> (pad as? TrackballWindow)?.applyExternalState(json) },
+            onHidden = { hideJoy() }
+        )
+        joy = w
+        w.show()
+        // Трекбол и курсор должны оставаться над голо-окном, иначе им нельзя управлять
+        (pad as? TrackballWindow)?.bringToFront()
+        cursor?.bringToFront()
+    }
+
+    private fun hideJoy() {
+        joy?.hide()
+        joy = null
     }
 
     private fun toggleSettings() {
@@ -170,6 +229,7 @@ class OverlayService : Service() {
         cursor?.applySettings(settings)
         val c = cursor
         if (c != null && settings.padStyle != padStyleBuilt) {
+            hideJoy()
             // Смена стиля указателя: пересоздаём окно, сохраняя «показано/скрыто»
             val wasShown = pad?.isShown == true
             pad?.destroy()
@@ -213,10 +273,14 @@ class OverlayService : Service() {
     override fun onDestroy() {
         isRunning = false
         settingsWindow?.hide()
+        stylus?.hide()
+        joy?.hide()
         pad?.destroy()
         button?.destroy()
         cursor?.destroy()
         settingsWindow = null
+        stylus = null
+        joy = null
         pad = null
         button = null
         cursor = null

@@ -1,0 +1,28 @@
+Ты работаешь с Android-проектом «Virtual Mouse + Keyboard» (Kotlin, applicationId com.example.virtualmouse). К проекту приложен архив с 12 готовыми файлами без подпапок. Твоя задача — ТОЛЬКО разложить их по местам в проекте с заменой существующих файлов. Сам код не переписывай, не «улучшай» и не форматируй.
+
+ПРАВИЛА
+1. Код файлов в чат НЕ выводить. Никаких листингов и диффов.
+2. Если файл с таким именем уже есть по указанному пути — заменить его целиком содержимым из архива. Если файла нет — создать.
+3. Другие файлы проекта не трогать. Если после замены что-то не компилируется (несовпадение имён/сигнатур), сначала напиши мне, что именно, и не чини молча.
+4. Работай партиями, после КАЖДОЙ партии пиши коротко: «Заменено N из 12: <список имён>. Осталось M: <список имён>».
+5. В конце — итог: что заменено, что создано заново, что пропущено и почему.
+
+КУДА КЛАСТЬ (12 файлов)
+app/src/main/assets/                      (заменить)  trackball.html
+app/src/main/assets/                      (новые)     joy.html, stylus.html
+app/src/main/java/com/example/virtualmouse/ (заменить) TrackballWindow.kt, OverlayService.kt, SettingsWindow.kt
+app/src/main/java/com/example/virtualmouse/ (новые)    StylusWindow.kt, JoyWindow.kt, ImagePickActivity.kt
+app/src/main/res/layout/                  (заменить)  dialog_settings.xml
+app/src/main/                             (заменить)  AndroidManifest.xml
+.github/workflows/                        (заменить)  android-build.yml  (теперь сам скачивает three.min.js при сборке)
+
+ПОРЯДОК ПАРТИЙ
+Партия 1 (ресурсы): android-build.yml, AndroidManifest.xml, dialog_settings.xml, trackball.html, joy.html, stylus.html
+Партия 2 (Kotlin): ImagePickActivity.kt, StylusWindow.kt, JoyWindow.kt, TrackballWindow.kt, SettingsWindow.kt, OverlayService.kt
+
+ПОСЛЕ ЗАМЕНЫ ПРОВЕРЬ (кратко, без кода)
+- в OverlayService есть showStylus/closeStylus/toggleJoy/hideJoy, а в SettingsWindow есть параметр onStylus;
+- в TrackballWindow есть параметр onJoy, функции bringToFront() и applyExternalState();
+- в манифесте есть разрешение INTERNET и активность .ImagePickActivity;
+- в dialog_settings.xml есть элемент с id row_stylus.
+three.min.js добавлять не нужно: его скачает сборка на GitHub.

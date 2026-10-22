@@ -26,6 +26,15 @@ jobs:
           gradle-version: '8.10.2'
           cache-disabled: true
 
+      - name: Download three.js (engine for Joy drone)
+        run: |
+          mkdir -p app/src/main/assets
+          if [ ! -s app/src/main/assets/three.min.js ]; then
+            curl -fsSL --retry 5 --retry-delay 3 -o app/src/main/assets/three.min.js \
+              https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js
+          fi
+          test "$(wc -c < app/src/main/assets/three.min.js)" -gt 100000
+
       - name: Build debug APK
         run: gradle assembleDebug --refresh-dependencies --stacktrace
 
