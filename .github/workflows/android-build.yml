@@ -26,6 +26,14 @@ jobs:
           gradle-version: '8.10.2'
           cache-disabled: true
 
+      - name: Create debug.keystore if missing (needed by signingConfig debugConfig)
+        run: |
+          if [ ! -s debug.keystore ]; then
+            keytool -genkeypair -keystore debug.keystore -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
       - name: Download three.js (engine for Joy drone)
         run: |
           mkdir -p app/src/main/assets
