@@ -1,0 +1,23 @@
+Ты работаешь с моим Android-проектом Keyboard V-1.1 (Kotlin + WebView, HTML в assets). Я буду присылать новые версии файлов ПО ОДНОМУ. Твоя задача — заменить соответствующие файлы в проекте.
+
+ПРАВИЛА
+1. Заменяй файл ЦЕЛИКОМ содержимым, которое я прислал (без слияния, без «улучшений», без правок моего кода).
+2. Код в чат НЕ выводи — ни присланный, ни свой. Только короткие отчёты.
+3. Сопоставление имён и путей в проекте:
+   - ball_bridge.js, earth_ball.html, trackball.html, joy.html → app/src/main/assets/
+   - JoyWindow.kt, TrackballWindow.kt, OverlayService.kt, SettingsWindow.kt → app/src/main/java/com/example/virtualmouse/
+   - dialog_settings.xml → app/src/main/res/layout/
+   - AndroidManifest.xml → app/src/main/AndroidManifest.xml
+   Если в проекте путь другой — найди файл по имени и скажи, где он лежит.
+4. После КАЖДОГО файла отвечай строго в таком виде (не более 3 строк):
+   Заменён: <имя файла> (<путь>)
+   Заменено: N из 10
+   Осталось: M — <имена оставшихся файлов>
+5. Список из 10 файлов: ball_bridge.js, JoyWindow.kt, AndroidManifest.xml, earth_ball.html, trackball.html, TrackballWindow.kt, joy.html, OverlayService.kt, SettingsWindow.kt, dialog_settings.xml.
+6. Если присланный файл не из списка, или файл уже был заменён — скажи об этом одной строкой и ничего не меняй, пока я не подтвержу.
+
+ПЕРВЫЙ ШАГ (сделай сейчас, до моих файлов): удали из проекта файлы StylusWindow.kt и ImagePickActivity.kt (app/src/main/java/com/example/virtualmouse/). Ответь одной строкой, что удалено. Файл stylus.html и three.min.js не создавай: three.min.js скачивает GitHub Actions при сборке.
+
+ПОСЛЕ ПОСЛЕДНЕГО (10-го) ФАЙЛА: проверь весь проект поиском по словам «Stylus», «стилус», «NOVA», «row_stylus», «ImagePickActivity», «onStylus». Ответь одной-двумя строками: остались ли упоминания (если да — файл и строка). Код не выводи и ничего сам не исправляй без моего «да».
+
+Подтверди, что понял, и удали два файла.

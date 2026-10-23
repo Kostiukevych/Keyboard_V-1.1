@@ -1,13 +1,35 @@
 /* ball_bridge.js: мост между trackball.html и сферой в iframe (holo_ball.html / earth_ball.html).
-   Родитель шлёт нормированные координаты пальца (0..1 по шару); здесь они превращаются
-   в настоящие pointer-события, так что сфера живёт своей родной логикой (инерция, молнии, ряби).
-   Вне iframe (открыли файл отдельно) скрипт ничего не делает. */
+   1) Ввод: родитель шлёт нормированные координаты пальца (0..1 по шару); здесь они превращаются
+      в настоящие pointer-события, так что сфера живёт своей родной логикой (инерция, молнии, ряби).
+   2) Готовность: после 3-го отрисованного кадра шлём родителю {tb:1,k:'ready'} — родитель до этого
+      держит iframe невидимым (нет чёрного квадрата). Запасной таймер 2.5 с.
+   3) Пауза: родитель шлёт {tb:1,k:'pause'} / {tb:1,k:'resume'}; пока пауза — requestAnimationFrame сферы
+      не вызывает кадры (ноль нагрузки на CPU/GPU, когда шар скрыт).
+   Вне iframe (открыли файл отдельно) скрипт ничего не делает.
+   Страница сферы ОБЯЗАНА крутить анимацию через глобальный requestAnimationFrame (не через сохранённую ссылку). */
 (function(){
   if(window.parent===window)return;
+
+  /* ---- прозрачность: тот же color-scheme, что у родителя, иначе Chromium красит фон iframe в чёрный ---- */
   var st=document.createElement('style');
-  st.textContent='html,body{background:transparent!important;overflow:hidden}.info,#msg,.halo{display:none!important}#g{width:100vmin!important;height:100vmin!important}';
+  st.textContent='html,body{background:transparent!important;overflow:hidden;color-scheme:normal!important}.info,#msg,.halo{display:none!important}#g{width:100vmin!important;height:100vmin!important}';
   document.head.appendChild(st);
-  var isEarth=!!document.getElementById('ov');
+
+  /* ---- ready + пауза через обёртку над requestAnimationFrame ---- */
+  var realRAF=window.requestAnimationFrame.bind(window),paused=false,held=[],frames=0,sent=false;
+  function post(k){try{window.parent.postMessage({tb:1,k:k},'*')}catch(e){}}
+  function sendReady(){if(sent)return;sent=true;post('ready')}
+  window.requestAnimationFrame=function(cb){
+    if(paused){held.push(cb);return 0}
+    return realRAF(function(t){
+      cb(t);
+      if(!sent&&++frames>=3)realRAF(sendReady);   // кадр уже показан на экране
+    });
+  };
+  setTimeout(sendReady,2500);
+
+  /* ---- ввод ---- */
+  var isEarth=!!document.getElementById('ov')||!!document.querySelector('meta[name="ball"][content="earth"]');
   var tgt=isEarth?document:document.getElementById('c');
   if(!tgt)return;
   if(!isEarth)tgt.setPointerCapture=function(){};
@@ -22,5 +44,7 @@
     if(d.k==='down'){ax=d.x;ay=d.y;fire('pointerdown',d.x,d.y)}
     else if(d.k==='move')fire('pointermove',d.x,d.y);
     else if(d.k==='up')fire('pointerup',d.x,d.y);
+    else if(d.k==='pause')paused=true;
+    else if(d.k==='resume'&&paused){paused=false;var h=held;held=[];for(var i=0;i<h.length;i++)window.requestAnimationFrame(h[i])}
   });
 })();

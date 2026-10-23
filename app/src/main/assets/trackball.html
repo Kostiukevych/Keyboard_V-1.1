@@ -20,7 +20,8 @@ body{background:radial-gradient(ellipse at 50% 30%,var(--bg1),var(--bg2));overfl
 .mouse svg{filter:drop-shadow(0 6px 4px rgba(0,0,0,.5)) drop-shadow(0 26px 22px rgba(0,0,0,.5))}
 .mouse svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .mouse canvas{position:absolute;left:18.75%;top:13.04%;width:45%;height:39.13%;border-radius:50%;cursor:grab;touch-action:none;will-change:transform}
-.mouse iframe.sph{position:absolute;left:18.75%;top:13.04%;width:45%;height:39.13%;border:0;background:transparent;pointer-events:none}
+.mouse iframe.sph{position:absolute;left:18.75%;top:13.04%;width:45%;height:39.13%;border:0;background:transparent;color-scheme:normal;pointer-events:none;opacity:0;transition:opacity .15s}
+.mouse iframe.sph.rdy{opacity:1}
 .mouse canvas.drag{cursor:grabbing;box-shadow:0 0 14px var(--acc)}
 .key{cursor:pointer;transition:transform .08s,filter .08s;transform-box:fill-box}
 .key.pressed{transform:translateY(2.5px);filter:brightness(.85)}
@@ -305,16 +306,31 @@ html.pm .dlg{opacity:1!important}
 
   /* ===== шар ===== */
   /* сфера-iframe для стилей «Голо-шар» и «Земля»: рисует она, ввод принимает холст */
-  var SPHF=null,SPHN='';
+  var SPHF=null,SPHN='',SPHOLD=null,SPHT=0,SPHPAUSE=false;
+  function sphDrop(f){if(f&&f.parentNode)f.parentNode.removeChild(f)}
+  function sphPost(k){try{if(SPHF&&SPHF.contentWindow)SPHF.contentWindow.postMessage({tb:1,k:k},'*')}catch(_){}}
+  /* iframe невидим (opacity:0), пока сфера не пришлёт «ready» — так нет чёрного квадрата; старая сфера уходит, когда новая готова */
+  function sphShow(f){if(f!==SPHF)return;f.classList.add('rdy');if(SPHOLD){sphDrop(SPHOLD);SPHOLD=null}}
   function mountSph(){
     var want=ST=='bubble'?'holo_ball.html':ST=='earth'?'earth_ball.html':'';
     if(want===SPHN)return;
-    if(SPHF){SPHF.remove();SPHF=null}
+    clearTimeout(SPHT);
+    if(SPHOLD){sphDrop(SPHOLD);SPHOLD=null}
+    if(SPHF){if(want)SPHOLD=SPHF;else sphDrop(SPHF);SPHF=null}
     SPHN=want;if(!want)return;
     var f=document.createElement('iframe');f.className='sph';f.src=want;
     f.setAttribute('tabindex','-1');f.setAttribute('aria-hidden','true');f.setAttribute('allowtransparency','true');
     cv.parentNode.insertBefore(f,cv);SPHF=f;
+    SPHT=setTimeout(function(){sphShow(f)},3000);   /* запасной показ, если «ready» не пришло */
   }
+  addEventListener('message',function(e){
+    var d=e.data;if(!d||d.tb!==1||!SPHF||e.source!==SPHF.contentWindow)return;
+    if(d.k==='ready'){clearTimeout(SPHT);sphShow(SPHF);if(SPHPAUSE)sphPost('pause')}
+  });
+  /* пауза/возобновление анимации сферы (вызывает и приложение: окно скрыто, экран выключен) */
+  window.tbPause=function(){SPHPAUSE=true;sphPost('pause')};
+  window.tbResume=function(){SPHPAUSE=false;sphPost('resume')};
+  document.addEventListener('visibilitychange',function(){document.hidden?window.tbPause():window.tbResume()});
   function sphSend(k,e){
     if(!SPHF||!SPHF.contentWindow||!e)return;
     var r=cv.getBoundingClientRect();

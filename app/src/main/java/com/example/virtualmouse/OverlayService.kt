@@ -34,7 +34,6 @@ class OverlayService : Service() {
     private var pad: PadWindow? = null
     private var padStyleBuilt = 0
     private var settingsWindow: SettingsWindow? = null
-    private var stylus: StylusWindow? = null
     private var joy: JoyWindow? = null
     private var started = false
 
@@ -105,8 +104,7 @@ class OverlayService : Service() {
             getSettings = { settings },
             save = { persist() },
             onTap = {
-                if (stylus?.isShown == true) closeStylus(true)
-                else if (pad?.isShown == true) hidePad() else showPad()
+                if (pad?.isShown == true) hidePad() else showPad()
             },
             onLongTap = { toggleSettings() }
         ).also { it.show() }
@@ -114,8 +112,7 @@ class OverlayService : Service() {
         settingsWindow = SettingsWindow(
             this, wm, settings,
             onChanged = { applyAll() },
-            onSave = { persist() },
-            onStylus = { showStylus() }
+            onSave = { persist() }
         )
         showPad()
     }
@@ -168,31 +165,6 @@ class OverlayService : Service() {
         hideJoy()
         pad?.hide()
         cursor?.hide()
-    }
-
-    // ---------- Умный стилус NOVA ----------
-
-    /** Открывает стилус: тачпад/трекбол и курсор скрываются, поверх экрана появляется NOVA. */
-    private fun showStylus() {
-        hideJoy()
-        settingsWindow?.hide()
-        hidePad()
-        if (stylus == null) {
-            stylus = StylusWindow(
-                this, wm,
-                getPadName = { if (settings.padStyle == 1) "Трекбол" else "Тачпад" },
-                onReturnPad = { closeStylus(true) },
-                onClose = { closeStylus(false) }
-            )
-        }
-        stylus?.show()
-    }
-
-    /** returnPad = true: закрыть стилус и вернуть тачпад/трекбол; false: только закрыть (вернуть можно плавающей кнопкой). */
-    private fun closeStylus(returnPad: Boolean) {
-        stylus?.hide()
-        stylus = null
-        if (returnPad) showPad()
     }
 
     // ---------- Дрон Joy (кнопка с тремя полосками на трекболе) ----------
@@ -273,13 +245,11 @@ class OverlayService : Service() {
     override fun onDestroy() {
         isRunning = false
         settingsWindow?.hide()
-        stylus?.hide()
         joy?.hide()
         pad?.destroy()
         button?.destroy()
         cursor?.destroy()
         settingsWindow = null
-        stylus = null
         joy = null
         pad = null
         button = null

@@ -105,6 +105,8 @@ class JoyWindow(
         frame.setBackgroundColor(Color.TRANSPARENT)
         val w = WebView(themed)
         w.setBackgroundColor(Color.TRANSPARENT)
+        // Рисуем WebGL-дрона на GPU: без этого полноэкранное прозрачное окно композитится медленно
+        w.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         w.isVerticalScrollBarEnabled = false
         w.isHorizontalScrollBarEnabled = false
         w.overScrollMode = View.OVER_SCROLL_NEVER
@@ -153,6 +155,8 @@ class JoyWindow(
         root = null
         web?.let {
             try {
+                it.onPause()
+                it.loadUrl("about:blank")
                 it.removeJavascriptInterface("Android")
                 it.destroy()
             } catch (_: Exception) {

@@ -30,8 +30,7 @@ class SettingsWindow(
     private val wm: WindowManager,
     private val settings: CursorSettings,
     private val onChanged: () -> Unit,
-    private val onSave: () -> Unit,
-    private val onStylus: () -> Unit
+    private val onSave: () -> Unit
 ) {
     private val density = ctx.resources.displayMetrics.density
     private var root: View? = null
@@ -187,13 +186,6 @@ class SettingsWindow(
         v.findViewById<View>(R.id.file_picker_close).setOnClickListener {
             sounds.beep(180)
             overlay.visibility = View.GONE
-        }
-
-        // Умный стилус: тачпад/трекбол скрываются, открывается NOVA
-        v.findViewById<View>(R.id.row_stylus).setOnClickListener {
-            sounds.beep(420)
-            saveAndClose()
-            onStylus()
         }
 
         // Кнопка Готово

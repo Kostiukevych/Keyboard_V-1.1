@@ -1,7 +1,10 @@
 package com.example.virtualmouse
 
 import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
@@ -174,9 +177,64 @@ class TrackballWindow(
         try {
             wm.addView(v, lp)
             root = v
+            registerScreenReceiver()
         } catch (_: Exception) {
             Toast.makeText(ctx, "Нет разрешения «Поверх других окон»", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    // ---------- Пауза анимации шара (когда экран выключен или окно скрыто) ----------
+
+    private var screenRx: BroadcastReceiver? = null
+
+    /** Останавливает анимацию шара-сферы: ни CPU, ни GPU не тратятся, пока шар не виден. */
+    fun pauseBall() {
+        val w = web ?: return
+        try {
+            w.evaluateJavascript("window.tbPause&&tbPause()", null)
+            w.onPause()
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Возобновляет анимацию шара-сферы. */
+    fun resumeBall() {
+        val w = web ?: return
+        try {
+            w.onResume()
+            w.evaluateJavascript("window.tbResume&&tbResume()", null)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun registerScreenReceiver() {
+        if (screenRx != null) return
+        val rx = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, i: Intent?) {
+                when (i?.action) {
+                    Intent.ACTION_SCREEN_OFF -> pauseBall()
+                    Intent.ACTION_SCREEN_ON -> resumeBall()
+                }
+            }
+        }
+        try {
+            val f = IntentFilter()
+            f.addAction(Intent.ACTION_SCREEN_OFF)
+            f.addAction(Intent.ACTION_SCREEN_ON)
+            ctx.registerReceiver(rx, f)
+            screenRx = rx
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun unregisterScreenReceiver() {
+        screenRx?.let {
+            try {
+                ctx.unregisterReceiver(it)
+            } catch (_: Exception) {
+            }
+        }
+        screenRx = null
     }
 
     override fun hide() {
@@ -200,6 +258,7 @@ class TrackballWindow(
         MouseAccessibilityService.instance?.scrollEnd()
         panelOpen = false
         closeContextMenu()
+        unregisterScreenReceiver()
         root?.let {
             try {
                 wm.removeView(it)
@@ -209,6 +268,8 @@ class TrackballWindow(
         root = null
         web?.let {
             try {
+                it.onPause()
+                it.loadUrl("about:blank")
                 it.removeJavascriptInterface("Android")
                 it.destroy()
             } catch (_: Exception) {
