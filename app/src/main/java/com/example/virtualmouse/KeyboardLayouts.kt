@@ -53,7 +53,7 @@ object KeyboardLayouts {
     private fun bottom(vararg k: Key) = Row(k.toList())
 
     private fun mainBottom(other: Key) = bottom(
-        c("CTRL", "Ctrl", 1.4f), c("ALT", "Alt"), c("SPACE", "Space", 4f),
+        c("CTRL", "Ctrl", 1.4f), c("ALT", "Alt"), c("SPACE", "Space", 3f), t("@"),
         c("L:emoji", "\uD83D\uDE0A"), c("L:unicode", "\u2318"),
         c("L:letters", "\u0410\u0411\u0412", 1.4f), other, c("ENTER", "Enter", 1.6f)
     )
@@ -69,19 +69,19 @@ object KeyboardLayouts {
         Row(listOf(c("CAPS", "Caps", 1.75f)) + letterRow(RU4, EN4, lang) + c("ENTER", "Enter", 1.75f)),
         Row(listOf(c("SHIFT", "Shift", 2.25f)) + letterRow(RU5, EN5, lang) + c("SHIFT", "Shift", 2.25f)),
         bottom(
-            c("CTRL", "Ctrl", 1.4f), c("WIN", "Win"), c("ALT", "Alt"), c("SPACE", "Space", 6.3f),
-            c("L:unicode", "\u2318"), c("L:symbols", "?123", 1.4f), c("ALT", "Alt"), c("CTRL", "Ctrl", 1.4f)
+            c("CTRL", "Ctrl", 1.4f), c("WIN", "Win"), c("ALT", "Alt"), c("SPACE", "Space", 5.3f),
+            t("@"), c("L:unicode", "\u2318"), c("L:symbols", "?123", 1.4f), c("ALT", "Alt"), c("CTRL", "Ctrl", 1.4f)
         )
     )
 
     fun symbols(): List<Row> = listOf(
         fRow(),
         Row(chars("1 2 3 4 5 6 7 8 9 0 \u2116 %") + c("BKSP", "\u232B", 2.5f)),
-        Row(chars("+ \u2212 = / \u00D7 ( ) [ ] { } & _")),
+        Row(chars("@ + \u2212 = / \u00D7 ( ) [ ] { } & _")),
         Row(chars("\u20AC \$ \u20BD \u00A3 \u00A5 \u20B4 \u20B9 \u20A9 \u20BA \u20AA \u00A2 \u20BF")),
         Row(
             listOf(c("LEFT", "\u2190"), c("RIGHT", "\u2192"), c("UP", "\u2191"), c("DOWN", "\u2193")) +
-                chars("! ? , . ; : ' \"")
+                chars("@ ! ? , . ; : ' \"")
         ),
         mainBottom(c("L:more", "#+=", 1.4f))
     )
@@ -103,10 +103,10 @@ object KeyboardLayouts {
 
     /** Нижний ряд для сеточных слоёв (emoji, unicode). */
     fun bottomRow(layer: String): Row = if (layer == L_EMOJI) {
-        bottom(c("L:letters", "\u0410\u0411\u0412", 1.4f), c("L:symbols", "?123", 1.4f), c("SPACE", "Space", 5f), c("BKSP", "\u232B", 1.4f))
+        bottom(c("L:letters", "\u0410\u0411\u0412", 1.4f), c("L:symbols", "?123", 1.4f), c("SPACE", "Space", 4f), t("@"), c("BKSP", "\u232B", 1.4f))
     } else {
         bottom(
-            c("CTRL", "Ctrl", 1.2f), c("ALT", "Alt"), c("SPACE", "Space", 4f),
+            c("CTRL", "Ctrl", 1.2f), c("ALT", "Alt"), c("SPACE", "Space", 3f), t("@"),
             c("L:letters", "\u0410\u0411\u0412", 1.4f), c("L:symbols", "?123", 1.4f), c("BKSP", "\u232B", 1.4f)
         )
     }
@@ -143,7 +143,7 @@ object KeyboardLayouts {
 
     private const val ARROWS = """← → ↑ ↓ ↔ ↕ ⇐ ⇒ ⇑ ⇓ ⇔ ⇕ ↖ ↗ ↘ ↙ ↺ ↻ ⇄ ⇆ ⇋ ⇌ ⇧ ⇩ ⏎ ⏏ ⏩ ⏪ ⏫ ⏬ ▶ ◀ ▲ ▼ ➡ ⬅ ⬆ ⬇ ➤ ➔ ➜ ➞ ➟ ➠ ⟶ ⟵ ⟷ ⟹"""
     private const val MATH = """± × ÷ ≠ ≈ ≡ ≤ ≥ < > ∞ √ ∑ ∏ ∫ ∂ ∇ ∆ π µ Ω λ α β γ δ ε θ φ ψ ω % ‰ ‱ ° ′ ″ ∅ ∈ ∉ ⊂ ⊃ ∪ ∩ ∨ ∧ ¬ ⊕"""
-    private const val SPECIAL = """§ ¶ © ® ™ † ‡ • · … — – « » „ “ ” ‘ ’ ′ ″ ‴ ␣ ⌘ ⌥ ⇧ ⌫ ⎋ ⏎ ☰ ☱ ☲ ☳ ☴ ♠ ♥ ♦ ♣ ★ ☆ ✓ ✗ ⚡ ❤ ☺ ☻ № ⏳"""
+    private const val SPECIAL = """§ ¶ © ® ™ † ‡ • · … — – « » „ “ ” ‘ ’ ′ ″ ‴ ␣ ⌘ ⌥ ⇧ ⌫ ⎋ ⏎ ☰ ☱ ☲ ☳ ☴ ♠ ♥ ♦ ♣ ★ ☆ ✓ ✗ ⚡ ❤ ☺ ☻ № ⏳ @"""
 
     const val BIDI_TITLE = "Направление текста (BiDi)"
 

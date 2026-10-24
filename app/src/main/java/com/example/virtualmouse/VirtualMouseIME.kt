@@ -365,7 +365,7 @@ class VirtualMouseIME : InputMethodService() {
         )
 
         val glowSoft = ColorUtils.blendARGB(settings.keyGlowColor, Color.WHITE, 0.55f)
-        if (k.code.isEmpty() && k.text.firstOrNull()?.isLetterOrDigit() == true) {
+        if (k.code.isEmpty() && (k.text.firstOrNull()?.isLetterOrDigit() == true || k.text == "@")) {
             t.setTextColor(glowSoft)
             t.setShadowLayer(dp(5).toFloat(), 0f, 0f, settings.keyGlowColor)
         } else {

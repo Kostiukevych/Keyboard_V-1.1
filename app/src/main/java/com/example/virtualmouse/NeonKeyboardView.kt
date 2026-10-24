@@ -114,7 +114,7 @@ private object NeonData {
         listOf(c("ESC", "Esc")) + (1..12).map { c("F$it", "F$it") } + c("CLIP", "📋", 1.5f)
 
     private fun mb(o: NK): List<NK> = listOf(
-        c("CTRL", "Ctrl", 1.4f), c("ALT", "Alt"), c("SPACE", "Space", 4f),
+        c("CTRL", "Ctrl", 1.4f), c("ALT", "Alt"), c("SPACE", "Space", 3f), NK("@"),
         c("L:emoji", "😊"), c("L:unicode", "⌘"), c("L:letters", "АБВ", 1.4f), o, c("ENTER", "Enter", 1.6f)
     )
 
@@ -123,9 +123,9 @@ private object NeonData {
             listOf(
                 f(),
                 ch("1 2 3 4 5 6 7 8 9 0 № %") + c("BKSP", "⌫", 2.5f),
-                ch("+ − = / × ( ) [ ] { } & _"),
+                ch("@ + − = / × ( ) [ ] { } & _"),
                 ch("€ $ ₽ £ ¥ ₴ ₹ ₩ ₺ ₪ ¢ ₿"),
-                listOf(c("LEFT", "←"), c("RIGHT", "→"), c("UP", "↑"), c("DOWN", "↓")) + ch("! ? , . ; : ' \""),
+                listOf(c("LEFT", "←"), c("RIGHT", "→"), c("UP", "↑"), c("DOWN", "↓")) + ch("@ ! ? , . ; : ' \""),
                 mb(c("L:more", "#+=", 1.4f))
             )
         )
@@ -145,7 +145,7 @@ private object NeonData {
         "emoji" -> NLayer(
             null, true,
             listOf("" to EMOJI.map { NK(it) }),
-            listOf(c("L:letters", "АБВ", 1.4f), c("L:symbols", "?123", 1.4f), c("SPACE", "Space", 5f), c("BKSP", "⌫", 1.4f))
+            listOf(c("L:letters", "АБВ", 1.4f), c("L:symbols", "?123", 1.4f), c("SPACE", "Space", 4f), NK("@"), c("BKSP", "⌫", 1.4f))
         )
         "unicode" -> NLayer(
             null, false,
@@ -153,10 +153,10 @@ private object NeonData {
                 "Направление текста (BiDi)" to BIDI.map { (n, x) -> NK(n, "", 1f, "", x) },
                 "Стрелки и указатели" to ch("← → ↑ ↓ ↔ ↕ ⇐ ⇒ ⇑ ⇓ ⇔ ⇕ ↖ ↗ ↘ ↙ ↺ ↻ ⇄ ⇆ ⇋ ⇌ ⇧ ⇩ ⏎ ⏏ ⏩ ⏪ ⏫ ⏬ ▶ ◀ ▲ ▼ ➡ ⬅ ⬆ ⬇ ➤ ➔ ➜ ➞ ➟ ➠ ⟶ ⟵ ⟷ ⟹"),
                 "Математика" to ch("± × ÷ ≠ ≈ ≡ ≤ ≥ < > ∞ √ ∑ ∏ ∫ ∂ ∇ ∆ π µ Ω λ α β γ δ ε θ φ ψ ω % ‰ ‱ ° ′ ″ ∅ ∈ ∉ ⊂ ⊃ ∪ ∩ ∨ ∧ ¬ ⊕"),
-                "Спецсимволы" to ch("§ ¶ © ® ™ † ‡ • · … — – « » „ “ ” ‘ ’ ′ ″ ‴ ␣ ⌘ ⌥ ⇧ ⌫ ⎋ ⏎ ☰ ☱ ☲ ☳ ☴ ♠ ♥ ♦ ♣ ★ ☆ ✓ ✗ ⚡ ❤ ☺ ☻ № ⏳")
+                "Спецсимволы" to ch("§ ¶ © ® ™ † ‡ • · … — – « » „ “ ” ‘ ’ ′ ″ ‴ ␣ ⌘ ⌥ ⇧ ⌫ ⎋ ⏎ ☰ ☱ ☲ ☳ ☴ ♠ ♥ ♦ ♣ ★ ☆ ✓ ✗ ⚡ ❤ ☺ ☻ № ⏳ @")
             ),
             listOf(
-                c("CTRL", "Ctrl", 1.2f), c("ALT", "Alt"), c("SPACE", "Space", 4f),
+                c("CTRL", "Ctrl", 1.2f), c("ALT", "Alt"), c("SPACE", "Space", 3f), NK("@"),
                 c("L:letters", "АБВ", 1.4f), c("L:symbols", "?123", 1.4f), c("BKSP", "⌫", 1.4f)
             )
         )
@@ -169,8 +169,8 @@ private object NeonData {
                 listOf(c("CAPS", "Caps", 1.75f)) + lr(RU4, EN4, l) + c("ENTER", "Enter", 1.75f),
                 listOf(c("SHIFT", "Shift", 2.25f)) + lr(RU5, EN5, l) + c("SHIFT", "Shift", 2.25f),
                 listOf(
-                    c("CTRL", "Ctrl", 1.4f), c("WIN", "Win"), c("ALT", "Alt"), c("SPACE", "Space", 6.3f),
-                    c("L:unicode", "⌘"), c("L:symbols", "?123", 1.4f), c("ALT", "Alt"), c("CTRL", "Ctrl", 1.4f)
+                    c("CTRL", "Ctrl", 1.4f), c("WIN", "Win"), c("ALT", "Alt"), c("SPACE", "Space", 5.3f),
+                    NK("@"), c("L:unicode", "⌘"), c("L:symbols", "?123", 1.4f), c("ALT", "Alt"), c("CTRL", "Ctrl", 1.4f)
                 )
             )
         )
